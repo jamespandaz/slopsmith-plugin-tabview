@@ -11,6 +11,7 @@ let _tvReady = false;
 let _tvFilename = null; // captured from playSong hook
 let _tvCursorStyle = "rect";
 let _tvCursorColor = null;
+let _tvSyncOffset = 0;
 
 // ── Cursor style presets ────────────────────────────────────────────────
 // See CONTRIBUTING.md for how to add new cursor styles.
@@ -115,12 +116,56 @@ function _tvCreateContainer() {
     ].join(';');
     _tvApplyCursorStyle(hl);
     c.appendChild(hl);
+    
     // Loading overlay
     const ov = document.createElement('div');
     ov.id = 'tabview-loading';
     ov.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#fff;z-index:10;';
     ov.innerHTML = '<span style="color:#888;font-size:14px;">Loading tablature\u2026</span>';
     c.appendChild(ov);
+    
+    // Sync offset slider
+    const slider = document.createElement('div');
+    slider.id = 'tabview-offset-slider';
+    slider.style.cssText = [
+        'position:sticky',
+        'bottom:12px',
+        'float:right',
+        'margin-right:12px',
+        'display:flex',
+        'align-items:center',
+        'gap:8px',
+        'background:rgba(0,0,0,0.7)',
+        'padding:6px 12px',
+        'border-radius:8px',
+        'z-index:20',
+        'display:none',
+    ].join(';');
+    slider.innerHTML = [
+        '<label class="text-xs text-gray-400" style="white-space:nowrap">Offset</label>',
+        '<input type="range" id="tabview-offset" min="-2000" max="2000" step="1" value="0" style="width:120px;accent-color:#22d3ee">',
+        '<input type="number" id="tabview-offset-num" min="-2000" max="2000" step="1" value="0" style="width:60px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:#d1d5db;font-size:11px;text-align:right;padding:2px 4px;outline:none">',
+        '<span class="text-xs text-gray-400">ms</span>',
+    ].join('');
+
+    var offsetRange = slider.querySelector('#tabview-offset');
+    var offsetNum = slider.querySelector('#tabview-offset-num');
+
+    offsetRange.addEventListener('input', function () {
+        _tvSyncOffset = parseFloat(this.value) / 1000;
+        offsetNum.value = Math.round(_tvSyncOffset * 1000);
+        _tvSaveSettings();
+    });
+
+    offsetNum.addEventListener('input', function () {
+        var val = parseInt(this.value) || 0;
+        val = Math.max(-2000, Math.min(2000, val));
+        _tvSyncOffset = val / 1000;
+        offsetRange.value = val;
+        _tvSaveSettings();
+    });
+
+    c.appendChild(slider);
 
     const player = document.getElementById('player');
     player.appendChild(c);
@@ -191,6 +236,7 @@ async function _tvInit(arrayBuffer) {
 // ── Cursor sync ─────────────────────────────────────────────────────────
 
 function _tvTimeToTick(seconds) {
+    seconds = seconds + _tvSyncOffset;
     var beats = highway.getBeats();
     if (!beats || beats.length < 2) return 960;
 
@@ -324,6 +370,8 @@ async function _tvToggle() {
         _tvActive = false;
         _tvStopSync();
         if (_tvContainer) _tvContainer.style.display = 'none';
+        var offsetSlider = document.getElementById('tabview-offset-slider');
+        if (offsetSlider) offsetSlider.style.display = 'none';
         document.getElementById('highway').style.visibility = '';
         _tvUpdateButton();
         return;
@@ -361,6 +409,9 @@ async function _tvToggle() {
         _tvActive = true;
         document.getElementById('highway').style.visibility = 'hidden';
         _tvContainer.style.display = '';
+
+        var offsetSlider = document.getElementById('tabview-offset-slider');
+        if (offsetSlider) offsetSlider.style.display = 'flex';
 
         _tvCurrentFile = filename;
         _tvCurrentArr = arrIdx;
@@ -498,6 +549,7 @@ function _tvLoadSettings() {
         var settings = JSON.parse(raw);
         if (settings.cursorStyle) _tvCursorStyle = settings.cursorStyle;
         if (settings.cursorColor) _tvCursorColor = settings.cursorColor;
+        if (settings.syncOffset !== undefined) _tvSyncOffset = settings.syncOffset;
     } catch (e) { /* localStorage unavailable */ }
 }
 
@@ -523,6 +575,14 @@ function _tvApplySettingsToUI() {
 
     var colorPicker = document.getElementById('tabview-cursor-color');
     if (colorPicker) colorPicker.value = _tvCursorColor || '#22d3ee';
+
+    var offsetRange = document.getElementById('tabview-offset');
+    var offsetNum = document.getElementById('tabview-offset-num');
+    if (offsetRange) {
+        var ms = Math.round(_tvSyncOffset * 1000);
+        offsetRange.value = ms;
+        if (offsetNum) offsetNum.value = ms;
+    }
 }
 
 function _tvSaveSettings() {

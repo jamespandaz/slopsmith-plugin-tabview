@@ -6,7 +6,7 @@ A [Slopsmith](https://github.com/byrongamatos/slopsmith) plugin that renders Roc
 
 - Converts Rocksmith arrangement XML to Guitar Pro 5 format on the fly
 - Renders scrolling tablature notation via alphaTab in the browser
-- Cursor syncs to the existing audio playback
+- Cursor syncs to the existing audio playback with sync offset
 - Supports guitar and bass arrangements
 - Preserves techniques: bends, slides, hammer-ons, pull-offs, harmonics, palm mutes, tremolo picking
 - Handles custom tunings and capo
